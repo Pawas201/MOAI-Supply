@@ -67,6 +67,13 @@ CREATE TABLE calloffs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Disable Row Level Security (RLS) for testing/prototype CRUD via Client SDK
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE shipments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE calloffs DISABLE ROW LEVEL SECURITY;
+
 -- ====================================================================
 -- SEED DATA
 -- ====================================================================
