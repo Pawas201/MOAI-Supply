@@ -74,6 +74,13 @@ ALTER TABLE shipments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
 ALTER TABLE calloffs DISABLE ROW LEVEL SECURITY;
 
+-- Explicitly grant permissions to anon and authenticated roles
+GRANT ALL ON users TO anon, authenticated;
+GRANT ALL ON orders TO anon, authenticated;
+GRANT ALL ON shipments TO anon, authenticated;
+GRANT ALL ON inventory TO anon, authenticated;
+GRANT ALL ON calloffs TO anon, authenticated;
+
 -- ====================================================================
 -- SEED DATA
 -- ====================================================================
