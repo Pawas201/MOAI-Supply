@@ -1,0 +1,9 @@
+node_modules/
+database.sqlite
+*.pptx
+*.zip
+ppt_clean.txt
+ppt_extract/
+ppt_text.txt
+parse_ppt.js
+read_ppt.py
