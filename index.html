@@ -10,8 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS & Supabase SDK -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -806,6 +807,12 @@
 
     <!-- Application Script -->
     <script>
+        // Initialize Supabase Client
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://fzpfjhlfkmtperqbbtvz.supabase.co';
+        const supabaseKey = 'sb_publishable_stjK5UMLk_RhIEOJn6ZwLg_084RsHEN';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
         document.addEventListener('alpine:init', () => {
             Alpine.data('erpApp', () => ({
                 isLoggedIn: false,
@@ -864,8 +871,6 @@
                     inventory: [],
                     calloffs: []
                 },
-                
-                API_BASE: 'http://localhost:3000/api',
 
                 navigation: [
                     { id: 'prep', title: 'Order Preparation', subtitle: 'BOQ, VC & WBS Planning', desc: 'Step 1: Ensure 100% clarified orders and mapping.', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>' },
@@ -888,16 +893,18 @@
                     this.isLoggingIn = true;
                     this.authError = '';
                     try {
-                        const res = await fetch(`${this.API_BASE}/login`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: this.form.username, password: this.form.password })
-                        });
-                        const data = await res.json();
-                        if (!res.ok) {
-                            throw new Error(data.error || 'Login failed');
+                        const { data: user, error } = await supabaseClient
+                            .from('users')
+                            .select('*')
+                            .eq('username', this.form.username)
+                            .eq('password', this.form.password)
+                            .maybeSingle();
+
+                        if (error) throw new Error(error.message);
+                        if (!user) {
+                            throw new Error('Username atau password salah');
                         }
-                        this.currentUser = data.user;
+                        this.currentUser = user;
                         this.isLoggedIn = true;
                         this.switchTab('prep');
                     } catch(e) {
@@ -911,22 +918,32 @@
                     this.isLoggingIn = true;
                     this.authError = '';
                     try {
-                        const res = await fetch(`${this.API_BASE}/register`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
+                        // check if username exists
+                        const { data: existingUser, error: checkError } = await supabaseClient
+                            .from('users')
+                            .select('id')
+                            .eq('username', this.form.username)
+                            .maybeSingle();
+
+                        if (checkError) throw new Error(checkError.message);
+                        if (existingUser) {
+                            throw new Error('Username sudah terdaftar');
+                        }
+
+                        const { data: newUser, error: insertError } = await supabaseClient
+                            .from('users')
+                            .insert([{
                                 username: this.form.username,
                                 password: this.form.password,
                                 name: this.form.name,
                                 role: this.form.role
-                            })
-                        });
-                        const data = await res.json();
-                        if (!res.ok) {
-                            throw new Error(data.error || 'Registration failed');
-                        }
-                        // login immediately after register
-                        this.currentUser = data.user;
+                            }])
+                            .select()
+                            .single();
+
+                        if (insertError) throw new Error(insertError.message);
+
+                        this.currentUser = newUser;
                         this.isLoggedIn = true;
                         this.isRegistering = false;
                         this.switchTab('prep');
@@ -958,142 +975,190 @@
                 
                 async loadOrders() {
                     try {
-                        const res = await fetch(`${this.API_BASE}/orders`);
-                        this.db.orders = await res.json();
+                        const { data, error } = await supabaseClient
+                            .from('orders')
+                            .select('*')
+                            .order('id', { ascending: true });
+                        if (error) throw error;
+                        this.db.orders = data || [];
                     } catch(e) { console.error(e); }
                     this.isLoading = false;
                 },
                 async approveOrder(id) {
                     this.isLoading = true;
-                    await fetch(`${this.API_BASE}/orders/${id}/approve`, { method: 'POST' });
-                    await this.loadOrders();
+                    try {
+                        const { error } = await supabaseClient
+                            .from('orders')
+                            .update({ status: 'Clarified' })
+                            .eq('id', id);
+                        if (error) throw error;
+                        await this.loadOrders();
+                    } catch(e) { console.error(e); }
                 },
 
                 async loadShipments() {
                     try {
-                        const res = await fetch(`${this.API_BASE}/shipments`);
-                        this.db.shipments = await res.json();
+                        const { data, error } = await supabaseClient
+                            .from('shipments')
+                            .select('*')
+                            .order('id', { ascending: true });
+                        if (error) throw error;
+                        this.db.shipments = data || [];
                     } catch(e) { console.error(e); }
                     this.isLoading = false;
                 },
                 async submitCustoms(id) {
                     this.isLoading = true;
-                    await fetch(`${this.API_BASE}/shipments/${id}/submit-customs`, { method: 'POST' });
-                    await this.loadShipments();
+                    try {
+                        const { error } = await supabaseClient
+                            .from('shipments')
+                            .update({ status: 'Customs Submitted' })
+                            .eq('id', id);
+                        if (error) throw error;
+                        await this.loadShipments();
+                    } catch(e) { console.error(e); }
                 },
 
                 async loadInventory() {
                     try {
-                        const res = await fetch(`${this.API_BASE}/inventory`);
-                        this.db.inventory = await res.json();
+                        const { data, error } = await supabaseClient
+                            .from('inventory')
+                            .select('*')
+                            .order('id', { ascending: true });
+                        if (error) throw error;
+                        this.db.inventory = data || [];
                     } catch(e) { console.error(e); }
                     this.isLoading = false;
                 },
                 async executeInventory(id, action) {
                     this.isLoading = true;
-                    await fetch(`${this.API_BASE}/inventory/${id}/execute`, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action })
-                    });
-                    await this.loadInventory();
+                    try {
+                        const status = action === 'GR' ? 'GR_COMPLETED' : 'GI_COMPLETED';
+                        const { error } = await supabaseClient
+                            .from('inventory')
+                            .update({ status })
+                            .eq('id', id);
+                        if (error) throw error;
+                        await this.loadInventory();
+                    } catch(e) { console.error(e); }
                 },
 
                 async loadCalloffs() {
                     try {
-                        const res = await fetch(`${this.API_BASE}/calloffs`);
-                        this.db.calloffs = await res.json();
+                        const { data, error } = await supabaseClient
+                            .from('calloffs')
+                            .select('*')
+                            .order('id', { ascending: true });
+                        if (error) throw error;
+                        this.db.calloffs = data || [];
                     } catch(e) { console.error(e); }
                     this.isLoading = false;
                 },
                 async updateCalloff(id, status) {
                     this.isLoading = true;
-                    await fetch(`${this.API_BASE}/calloffs/${id}/status`, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status })
-                    });
-                    await this.loadCalloffs();
+                    try {
+                        const { error } = await supabaseClient
+                            .from('calloffs')
+                            .update({ status })
+                            .eq('id', id);
+                        if (error) throw error;
+                        await this.loadCalloffs();
+                    } catch(e) { console.error(e); }
                 },
 
                 // --- Form Submission Methods ---
                 async createOrder() {
                     this.isLoading = true;
                     try {
-                        const res = await fetch(`${this.API_BASE}/orders`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.newOrder)
-                        });
-                        if (res.ok) {
-                            this.newOrder = { site_id: '', boq_details: '', vc: '', wbs: '' };
-                            this.showOrderModal = false;
-                            await this.loadOrders();
-                        } else {
-                            const errData = await res.json();
-                            alert(errData.error || 'Failed to create order');
-                        }
-                    } catch(e) { console.error(e); }
+                        const wbs = this.newOrder.wbs || 'Missing';
+                        const status = wbs === 'Missing' ? 'Pending' : 'Clarified';
+                        const { error } = await supabaseClient
+                            .from('orders')
+                            .insert([{
+                                site_id: this.newOrder.site_id,
+                                boq_details: this.newOrder.boq_details,
+                                vc: this.newOrder.vc,
+                                wbs: wbs,
+                                status: status
+                            }]);
+                        if (error) throw error;
+                        this.newOrder = { site_id: '', boq_details: '', vc: '', wbs: '' };
+                        this.showOrderModal = false;
+                        await this.loadOrders();
+                    } catch(e) {
+                        console.error(e);
+                        alert(e.message || 'Failed to create order');
+                    }
                     this.isLoading = false;
                 },
 
                 async createShipment() {
                     this.isLoading = true;
                     try {
-                        const res = await fetch(`${this.API_BASE}/shipments`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.newShipment)
-                        });
-                        if (res.ok) {
-                            this.newShipment = { awb: '', description: '', hs_code: '', eta: '' };
-                            this.showShipmentModal = false;
-                            await this.loadShipments();
-                        } else {
-                            const errData = await res.json();
-                            alert(errData.error || 'Failed to create shipment');
-                        }
-                    } catch(e) { console.error(e); }
+                        const { error } = await supabaseClient
+                            .from('shipments')
+                            .insert([{
+                                awb: this.newShipment.awb,
+                                description: this.newShipment.description,
+                                hs_code: this.newShipment.hs_code,
+                                eta: this.newShipment.eta,
+                                status: 'In Transit'
+                            }]);
+                        if (error) throw error;
+                        this.newShipment = { awb: '', description: '', hs_code: '', eta: '' };
+                        this.showShipmentModal = false;
+                        await this.loadShipments();
+                    } catch(e) {
+                        console.error(e);
+                        alert(e.message || 'Failed to create shipment');
+                    }
                     this.isLoading = false;
                 },
 
                 async createInventory() {
                     this.isLoading = true;
                     try {
-                        const res = await fetch(`${this.API_BASE}/inventory`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.newInventory)
-                        });
-                        if (res.ok) {
-                            this.newInventory = { reference: '', type: 'INBOUND', items_count: 1 };
-                            this.showInventoryModal = false;
-                            await this.loadInventory();
-                        } else {
-                            const errData = await res.json();
-                            alert(errData.error || 'Failed to create inventory item');
-                        }
-                    } catch(e) { console.error(e); }
+                        const status = this.newInventory.type === 'INBOUND' ? 'PENDING_GR' : 'PENDING_GI';
+                        const { error } = await supabaseClient
+                            .from('inventory')
+                            .insert([{
+                                reference: this.newInventory.reference,
+                                type: this.newInventory.type,
+                                items_count: this.newInventory.items_count,
+                                status: status
+                            }]);
+                        if (error) throw error;
+                        this.newInventory = { reference: '', type: 'INBOUND', items_count: 1 };
+                        this.showInventoryModal = false;
+                        await this.loadInventory();
+                    } catch(e) {
+                        console.error(e);
+                        alert(e.message || 'Failed to create inventory item');
+                    }
                     this.isLoading = false;
                 },
 
                 async createCalloff() {
                     this.isLoading = true;
                     try {
-                        const res = await fetch(`${this.API_BASE}/calloffs`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.newCalloff)
-                        });
-                        if (res.ok) {
-                            this.newCalloff = { mr: '', site: '', dsp: 'Unassigned' };
-                            this.showCalloffModal = false;
-                            await this.loadCalloffs();
-                        } else {
-                            const errData = await res.json();
-                            alert(errData.error || 'Failed to create call-off');
-                        }
-                    } catch(e) { console.error(e); }
+                        const dsp = this.newCalloff.dsp || 'Unassigned';
+                        const status = dsp === 'Unassigned' ? 'READY' : 'ON_DELIVERY';
+                        const { error } = await supabaseClient
+                            .from('calloffs')
+                            .insert([{
+                                mr: this.newCalloff.mr,
+                                site: this.newCalloff.site,
+                                dsp: dsp,
+                                status: status
+                            }]);
+                        if (error) throw error;
+                        this.newCalloff = { mr: '', site: '', dsp: 'Unassigned' };
+                        this.showCalloffModal = false;
+                        await this.loadCalloffs();
+                    } catch(e) {
+                        console.error(e);
+                        alert(e.message || 'Failed to create call-off');
+                    }
                     this.isLoading = false;
                 }
             }))
