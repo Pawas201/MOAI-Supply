@@ -68,18 +68,75 @@ CREATE TABLE calloffs (
 );
 
 -- Disable Row Level Security (RLS) for testing/prototype CRUD via Client SDK
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE shipments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
-ALTER TABLE calloffs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calloffs DISABLE ROW LEVEL SECURITY;
 
 -- Explicitly grant permissions to anon and authenticated roles
-GRANT ALL ON users TO anon, authenticated;
-GRANT ALL ON orders TO anon, authenticated;
-GRANT ALL ON shipments TO anon, authenticated;
-GRANT ALL ON inventory TO anon, authenticated;
-GRANT ALL ON calloffs TO anon, authenticated;
+GRANT ALL ON public.users TO anon, authenticated;
+GRANT ALL ON public.orders TO anon, authenticated;
+GRANT ALL ON public.shipments TO anon, authenticated;
+GRANT ALL ON public.inventory TO anon, authenticated;
+GRANT ALL ON public.calloffs TO anon, authenticated;
+
+-- Fallback: In case RLS is still enforced by Supabase, create fully open public policies
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calloffs ENABLE ROW LEVEL SECURITY;
+
+-- 1. Users policies
+DROP POLICY IF EXISTS "Allow public select" ON public.users;
+DROP POLICY IF EXISTS "Allow public insert" ON public.users;
+DROP POLICY IF EXISTS "Allow public update" ON public.users;
+DROP POLICY IF EXISTS "Allow public delete" ON public.users;
+CREATE POLICY "Allow public select" ON public.users FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow public insert" ON public.users FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.users FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete" ON public.users FOR DELETE TO anon, authenticated USING (true);
+
+-- 2. Orders policies
+DROP POLICY IF EXISTS "Allow public select" ON public.orders;
+DROP POLICY IF EXISTS "Allow public insert" ON public.orders;
+DROP POLICY IF EXISTS "Allow public update" ON public.orders;
+DROP POLICY IF EXISTS "Allow public delete" ON public.orders;
+CREATE POLICY "Allow public select" ON public.orders FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow public insert" ON public.orders FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.orders FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete" ON public.orders FOR DELETE TO anon, authenticated USING (true);
+
+-- 3. Shipments policies
+DROP POLICY IF EXISTS "Allow public select" ON public.shipments;
+DROP POLICY IF EXISTS "Allow public insert" ON public.shipments;
+DROP POLICY IF EXISTS "Allow public update" ON public.shipments;
+DROP POLICY IF EXISTS "Allow public delete" ON public.shipments;
+CREATE POLICY "Allow public select" ON public.shipments FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow public insert" ON public.shipments FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.shipments FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete" ON public.shipments FOR DELETE TO anon, authenticated USING (true);
+
+-- 4. Inventory policies
+DROP POLICY IF EXISTS "Allow public select" ON public.inventory;
+DROP POLICY IF EXISTS "Allow public insert" ON public.inventory;
+DROP POLICY IF EXISTS "Allow public update" ON public.inventory;
+DROP POLICY IF EXISTS "Allow public delete" ON public.inventory;
+CREATE POLICY "Allow public select" ON public.inventory FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow public insert" ON public.inventory FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.inventory FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete" ON public.inventory FOR DELETE TO anon, authenticated USING (true);
+
+-- 5. Calloffs policies
+DROP POLICY IF EXISTS "Allow public select" ON public.calloffs;
+DROP POLICY IF EXISTS "Allow public insert" ON public.calloffs;
+DROP POLICY IF EXISTS "Allow public update" ON public.calloffs;
+DROP POLICY IF EXISTS "Allow public delete" ON public.calloffs;
+CREATE POLICY "Allow public select" ON public.calloffs FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Allow public insert" ON public.calloffs FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.calloffs FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public delete" ON public.calloffs FOR DELETE TO anon, authenticated USING (true);
 
 -- ====================================================================
 -- SEED DATA
